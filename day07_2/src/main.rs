@@ -103,13 +103,13 @@ fn run_amp(prog:&Vec<i64>,amp:&Vec<i64>)->i64 {
 
     let mut inp5 = (0i64,false);
     
-    while true {
+    while !inp5.1  {
                               c1.add_data(inp5.0); 
         let inp1 = c1.calc(); c2.add_data(inp1.0);
         let inp2 = c2.calc(); c3.add_data(inp2.0);
         let inp3 = c3.calc(); c4.add_data(inp3.0);
         let inp4 = c4.calc(); c5.add_data(inp4.0);
-            inp5 = c5.calc(); if inp5.1==true { break; } 
+            inp5 = c5.calc();
     }
     inp5.0
 }
