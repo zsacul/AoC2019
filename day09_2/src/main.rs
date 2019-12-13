@@ -121,14 +121,13 @@ impl Comp{
               },
               4 => { 
                       let p1 = self.get_params1(self.pos);
-                      println!("out:{}",p1);
+                      //println!("out:{}",p1);
                       self.output.push(p1);
                       self.pos+=2;
 
-                      if self.input==1 {
+                      if self.input>0 {
                         return self.output.clone();
                       }
-                      //panic!(" [{}/{}]",self.pos,self.prog.len())
               },
               5..=6 => {
                       let (p1,p2) = self.get_params2(self.pos);
@@ -146,7 +145,7 @@ impl Comp{
   }
 }
 
-//203 too low
+
 
 fn main() {
   //let ii:i128 = 1125899906842624;
@@ -165,7 +164,7 @@ fn main() {
   //let p = vec![1102,34915192,34915192,7,4,7,99,0]; //big num
   //let p = vec![104,1125899906842624,99]; // large num in the middle
   
-  let mut comp = Comp::new(p,1);  
+  let mut comp = Comp::new(p,2);  
   let output = comp.calc();
 
   println!("res:{:?}",output);  
