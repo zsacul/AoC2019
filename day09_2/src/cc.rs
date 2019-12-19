@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 struct Comp{
-  prog          : Vec<i128>,  
+  prog          : Vec<i128>,
+  mem           : HashMap<i128,i128>,
   relative_code : i128,
   input         : i128,
   output        : Vec<i128>,
@@ -10,6 +13,7 @@ impl Comp{
   fn new(prog:Vec<i128>,inp:i128)->Comp{
     Comp{
       prog          : prog.clone(),
+      mem           : HashMap::new(),
       relative_code : 0,
       input         : inp,
       output        : vec![],
@@ -20,20 +24,17 @@ impl Comp{
   fn write(&mut self,id:i128,val:i128)
   {
       if id<0 { panic!("write id less then 0"); }
-
-      if id >= self.prog.len() as i128 {
-        self.prog.resize(id as usize+1, 0);
-      }
-
-      self.prog[id as usize] = val;
-
-      //println!("write:{}={}",id,val);
+      let mem_id = id-self.prog.len() as i128;
+      if mem_id>=0 { self.mem.insert(mem_id, val); }
+              else { self.prog[id as usize] = val; }      
   }
 
   fn read(&self,id:i128)->i128
   {
       if id<0 { panic!("read id less then 0"); }
-      *self.prog.get(id as usize).unwrap_or(&0)
+      let mem_id = id-self.prog.len() as i128;
+      if mem_id>=0 { return *self.mem.get(&mem_id).unwrap_or(&0); }
+      self.prog[id as usize]
   }
 
   fn get_params1(&self,n:i128)->(i128)
@@ -65,7 +66,7 @@ impl Comp{
     match code {
       0 => self.read(self.read(n)),
       1 => self.read(n),
-      2 => self.read(self.read(n) + self.relative_code),
+      2 => self.read(self.read(n)+self.relative_code),
       _ => panic!("unknown val code:{} [{}/{}]",code,self.pos,self.prog.len()),
     }
   }
@@ -74,7 +75,7 @@ impl Comp{
   {
     match code {
       0 => self.read(n),
-      2 => self.read(n) + self.relative_code,
+      2 => self.read(n)+self.relative_code,
       _ => panic!("unknown adress code:{} [{}/{}]",code,self.pos,self.prog.len()),
     }
   }
@@ -85,11 +86,13 @@ impl Comp{
           if self.pos>=self.prog.len() as i128 { return self.output.clone(); }
 
           let full_code = self.read(self.pos);
-          let code = full_code%100;
+          let code = full_code%10;
   
-          //println!("pos:{} val:{} i:{}",self.pos,self.prog[self.pos as usize],code);
+          println!("i:{}",code);
 
-          match code {          
+          match code {
+
+            
               1..=2 => { 
                       let (p1,p2,p3) = self.get_params3(self.pos);
                            if code==1 { self.write(p3, p1+p2); }
@@ -98,38 +101,39 @@ impl Comp{
                     },
               7..=8 => {
                       let (p1,p2,p3) = self.get_params3(self.pos);
-                           if code==7 { if p1< p2 { self.write(p3, 1); } 
-                                             else { self.write(p3, 0); } }
-                      else if code==8 { if p1==p2 { self.write(p3, 1); } 
-                                             else { self.write(p3, 0); } }
+                           if code==7 { self.write(p3, if p1< p2 {1} else {0}); }
+                      else if code==8 { self.write(p3, if p1==p2 {1} else {0}); }
                       self.pos+=4;
               }
               9 => {
                       let p1 = self.get_params1(self.pos);
                       self.relative_code+=p1;
-                   // println!("rel offset:{} rel_code:{}",p1,self.relative_code);                     
+                     // println!("rel offset:{} rel_code:{}",p1,self.relative_code);
+                      
                       self.pos+=2;
               }
-              3 => {     
-                let p1 = self.get_adress((full_code/100)%10,self.pos+1); //
+              3 => { 
+                
+                      let p1 = self.get_adress((full_code/100)%10,self.pos+1); //self.get_params1(self.pos);//self.read(self.pos+1);
+                      println!("pos:{} val:{}",self.pos+1,p1);
                       self.write(p1,self.input);
                       self.pos+=2;
               },
               4 => { 
-                      let p1 = self.get_value((full_code/100 )%10,self.pos+1);
-                      println!("out:{}",p1);
+                      let p1 = self.get_params1(self.pos);
+                      //println!("out:{}",p1);
                       self.output.push(p1);
                       self.pos+=2;
+
+                      if self.input>0 {
+                        return self.output.clone();
+                      }
               },
               5..=6 => {
                       let (p1,p2) = self.get_params2(self.pos);
                       self.pos+=3;
-
-                      //println!("pos:{}",self.pos);
-                      //println!("code:{} p1:{} p2:{}",code,p1,p2);
                            if code==5 { if p1!=0 {self.pos = p2;} }
                       else if code==6 { if p1==0 {self.pos = p2;} }
-                      //println!("pos:{}",self.pos);
               }
               99 => { return self.output.clone(); },
                _ => { 
@@ -159,10 +163,8 @@ fn main() {
   //let p = vec![109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99]; // same code on output
   //let p = vec![1102,34915192,34915192,7,4,7,99,0]; //big num
   //let p = vec![104,1125899906842624,99]; // large num in the middle
-
-
   
-  let mut comp = Comp::new(p,0);  
+  let mut comp = Comp::new(p,2);  
   let output = comp.calc();
 
   println!("res:{:?}",output);  
@@ -241,3 +243,14 @@ let p = vec![3,225,1,225,6,6,1100,1,238,225,104,0,1102,67,92,225,1101,14,84,225,
 } 
 
   
+
+  
+
+/*
+#[test]
+fn test2() {
+  let p = vec![1101, 100, -1, 4, 0];
+  let output = calc(p,0);
+  assert_eq!(output, vec![]);
+} 
+*/
