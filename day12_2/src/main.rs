@@ -14,10 +14,6 @@ impl Vec3 {
             z:fz,
         }
     }
-
-    fn is_zero(&self)->bool{
-        self.x==0 && self.y==0 && self.z==0
-    }
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
@@ -45,46 +41,21 @@ impl Planet{
         else if self.position.z<other.z { self.velocity.z+=1; }
     }
 
-    fn get_min_dist(&mut self,other:&Planet)->i64
-    {
-        let mut             res = (self.position.x-other.position.x).abs();
-        res = std::cmp::min(res , (self.position.y-other.position.y).abs());
-              std::cmp::min(res , (self.position.z-other.position.z).abs())
-    }
-
     fn move_planet(&mut self){
         self.position.x+=self.velocity.x;
         self.position.y+=self.velocity.y;
         self.position.z+=self.velocity.z;
     }
-
-    fn get_potential_energy(&self)->i64{
-        self.position.x.abs()+
-        self.position.y.abs()+
-        self.position.z.abs()
-    }
-
-    fn get_kinetic_energy(&self)->i64{
-        self.velocity.x.abs()+
-        self.velocity.y.abs()+
-        self.velocity.z.abs()
-    }
-
-    fn get_energy(&self)->i64{
-        self.get_potential_energy() * self.get_kinetic_energy()
-    }
 }
 
 struct System {
     planets   : Vec<Planet>,
-    iteration : u64,
 }
 
 impl System{
     fn new()->System{
         System{
             planets : vec![],
-            iteration : 0,
         }
     }
 
@@ -107,33 +78,83 @@ impl System{
         for a in self.planets.iter_mut() { a.move_planet(); }
     }
 
-    fn compute(&mut self,num_iteration:i64){
-        for i in 0..num_iteration {
-            self.apply_gravity();
-            self.move_planets();   
+    fn same_axis(&self,o:&Vec<Planet>,axis:char)->bool
+    {
+        match axis {
+            'x' => self.planets[0].position.x == o[0].position.x &&
+                   self.planets[1].position.x == o[1].position.x &&
+                   self.planets[2].position.x == o[2].position.x &&
+                   self.planets[3].position.x == o[3].position.x &&
+                   self.planets[0].velocity.x == o[0].velocity.x &&
+                   self.planets[1].velocity.x == o[1].velocity.x &&
+                   self.planets[2].velocity.x == o[2].velocity.x &&
+                   self.planets[3].velocity.x == o[3].velocity.x ,
+            'y' => self.planets[0].position.y == o[0].position.y &&
+                   self.planets[1].position.y == o[1].position.y &&
+                   self.planets[2].position.y == o[2].position.y &&
+                   self.planets[3].position.y == o[3].position.y &&
+                   self.planets[0].velocity.y == o[0].velocity.y &&
+                   self.planets[1].velocity.y == o[1].velocity.y &&
+                   self.planets[2].velocity.y == o[2].velocity.y &&
+                   self.planets[3].velocity.y == o[3].velocity.y ,
+            'z' => self.planets[0].position.z == o[0].position.z &&
+                   self.planets[1].position.z == o[1].position.z &&
+                   self.planets[2].position.z == o[2].position.z &&
+                   self.planets[3].position.z == o[3].position.z &&
+                   self.planets[0].velocity.z == o[0].velocity.z &&
+                   self.planets[1].velocity.z == o[1].velocity.z &&
+                   self.planets[2].velocity.z == o[2].velocity.z &&
+                   self.planets[3].velocity.z == o[3].velocity.z ,
+             _  => panic!("err"),
         }
     }
 
-    fn compute_loop(&mut self)->i64{
-        let mut iterations = 0;
+    fn gdc(&self,a:i128,b:i128) -> i128
+    {
+        let mut aa = a;
+        let mut bb = b;
+        
+        while bb!=0 {
+            let t = bb;
+            bb = aa%bb;
+            aa = t;
+        }
+        aa
+    }    
+
+    fn compute_loop(&mut self)->i128{
+        let mut iterations = 0i128;
         let planets_copy = self.planets.clone();
 
-        loop {
+        let mut xi=-1i128;
+        let mut yi=-1i128;
+        let mut zi=-1i128;
+
+        while xi==-1 || yi==-1 || zi==-1 {
+
             self.apply_gravity();
             self.move_planets();   
+
             iterations+=1;
             if self.planets==planets_copy { return iterations; }
-            if iterations%10000000==0 { println!("i:{}",iterations/10000000); }
+
+            if self.same_axis(&planets_copy,'x') && xi==-1 { xi = iterations; }
+            if self.same_axis(&planets_copy,'y') && yi==-1 { yi = iterations; }
+            if self.same_axis(&planets_copy,'z') && zi==-1 { zi = iterations; }
         }
-    }
-    
-    fn get_energy(&self)->i64{
-        let mut res = 0;
-        for a in &self.planets { res+=a.get_energy(); }
-        res
+
+        println!("ix:{}",xi);
+        println!("iy:{}",yi);
+        println!("iz:{}",zi);
+        
+        xi/=self.gdc(xi,yi);
+        yi/=self.gdc(yi,zi);
+        zi/=self.gdc(zi,xi);
+
+        xi*yi*zi
     }
 }
-// nie ma az do 9750
+
 fn main() {
     let mut system = System::new();
 
@@ -157,15 +178,3 @@ fn test1()
 
     assert_eq!(system.compute_loop(),2772);
 }
-
-fn test2(){
-    let mut system = System::new();
-
-    system.add_planet(-8,-10,0);
-    system.add_planet(5, 5,  10);
-    system.add_planet(2, -7, 3);
-    system.add_planet(9, -8, -3);
-                                     
-    assert_eq!(system.compute_loop(),4686774924);
-}
-
