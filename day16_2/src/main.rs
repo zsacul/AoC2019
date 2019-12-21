@@ -138,8 +138,8 @@ fn main() {
         println!("i:{}",i);
         data = comp.comp(data);        
     }
-    println!("{:?}",&data[..8]);
-    //println!("{:?}",&data[5977359..5977359+8]);
+    //println!("{:?}",&data[..8]);
+    println!("{:?}",&data[5977359..5977359+8]);
     
 }
 
