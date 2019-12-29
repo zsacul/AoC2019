@@ -2,33 +2,171 @@ use std::collections::HashMap;
 
 #[derive(Debug,Clone,Hash)]
 struct Elem {
-    n : i64,
-    name : String,
+    from : ElemBin,
+    tab : Vec<ElemBin>,
 }
 
 impl Elem {
-    fn new(s:String)->Elem{
-        let t:Vec<&str> = s.split(' ').collect();
-        Elem{
-            n : t[0].parse::<i64>().unwrap(),
-            name : t[1].to_string(),
+    fn new(s_from:String,s_to:String)->Elem{
+        Elem {
+            from : ElemBin::new_from_string(s_from),
+            tab  : get_elems(s_to),
         }
     }
 }
 
-fn comp(data:Vec<String>) -> i64 {
-    let mut hash : HashMap<String,Elem> = HashMap::new();
-    let mut res = 0;
-    
-    for d in data {
-        let t : Vec<&str> = d.split(" => ").collect();
-        let r_elem = Elem::new(t[1].to_string());
-        hash.insert(r_elem.name, r_elem);
+#[derive(Debug,Clone,Hash)]
+struct ElemBin {
+    n : i64,
+    name : String,
+}
+
+impl ElemBin {
+    fn new(num:i64,s:String)->ElemBin{
+        let t:Vec<&str> = s.split(' ').collect();
+        ElemBin {
+            n    : num,
+            name : s,
+        }
+    }
+
+    fn new_from_string(s:String)->ElemBin{
+        let t:Vec<&str> = s.split(' ').collect();
+        ElemBin::new(t[0].parse::<i64>().unwrap(),t[1].to_string())
+    }
+}
+
+fn get_elems(s:String)->Vec<ElemBin>{
+    let mut res = vec![];
+    let t : Vec<&str> = s.split(", ").collect();
+    for elem in t {
+        res.push(ElemBin::new_from_string(elem.to_string()))
     }
     res
 }
 
+fn resolve(hash : &HashMap<String,Elem>,name:String)->Vec<ElemBin>{
+    let elem = hash.get(&name).unwrap();
+    let n = elem.from.n;
+
+    let mut res : Vec<ElemBin> = vec![];
+    for e in &elem.tab {
+        res.push(ElemBin::new(n*e.n,e.name.clone()));
+    }
+    res
+}
+
+fn collapse(vector :&mut Vec<ElemBin>)
+{
+    let mut spares : HashMap<String,i64> = HashMap::new();  
+    (for e in vector.iter() {        
+        spares.insert(e.name.clone(),spares.get(&e.name).unwrap_or(&0) + e.n);
+    });
+
+    vector.clear();
+    for (key, value) in &spares {
+        vector.push(ElemBin::new(*value,key.clone()));
+    }
+    
+    //*hash = spares.iter().map(|k,v| ElemBin::new(v,k)).collect::<Vec<ElemBin>>().clone();
+}
+
+
+fn compute_refs(refs:&mut HashMap<String,i64>,hash:&HashMap<String,Elem>,name:String){
+
+    if name.to_string()=="ORE" { return; }
+    let v = *refs.get(&name).unwrap_or(&0) as i64;
+    refs.insert(name.to_string(),v+1);
+
+    //println!("hash:{:?}",hash);
+    //println!("__name:*{}*",name);
+
+
+    let e = match hash.get(&name) {
+        Some(ee) => ee,
+        None => panic!("err"),
+    };
+
+    //let e = hash.get(&name.clone()).unwrap();
+    //println!("e:{:?}",e);
+
+    for el in &e.tab {        
+        compute_refs(refs,hash,el.name.clone());
+    }
+}
+
+//hash:{"C": Elem { from: ElemBin { n: 1, name: "C" }, tab: [ElemBin { n: 7, name: "A" }, ElemBin { n: 1, name: "B" }] }, 
+//"B": Elem { from: ElemBin { n: 1, name: "B" }, tab: [ElemBin { n: 1, name: "ORE" }] }, 
+//"A": Elem { from: ElemBin { n: 10, name: "A" }, tab: [ElemBin { n: 10, name: "ORE" }] }, 
+//"D": Elem { from: ElemBin { n: 1, name: "D" }, tab: [ElemBin { n: 7, name: "A" }, ElemBin { n: 1, name: "C" }] }, 
+//"E": Elem { from: ElemBin { n: 1, name: "E" }, tab: [ElemBin { n: 7, name: "A" }, ElemBin { n: 1, name: "D" }] }, 
+//"FUEL": Elem { from: ElemBin { n: 1, name: "FUEL" }, tab: [ElemBin { n: 7, name: "A" }, ElemBin { n: 1, name: "E" }] }}
+
+
+fn comp(data:Vec<&str>) -> i64 {
+    let mut hash : HashMap<String,Elem> = HashMap::new();
+    
+    
+    for d in data {
+        let t : Vec<&str> = d.split(" => ").collect();
+        let r_elem = Elem::new(t[1].to_string(),t[0].to_string());
+        hash.insert(r_elem.from.name.clone(), r_elem);
+    }
+
+    let mut refs : HashMap<String,i64> = HashMap::new();
+    compute_refs(&mut refs,&hash.clone(),"FUEL".to_string());
+
+    println!("{:?}",hash["FUEL"]);
+    let mut resl = resolve(&hash,"FUEL".to_string());
+    println!("res2:{:?}",resl);
+
+    let mut res2 = vec![];
+    let mut res = 0;
+    
+    //for (key,val) in hash.clone() {
+        //let v = refs.get(&val.from.name).unwrap_or(&0);
+        //refs.insert(val.from.name,v+1);
+    //}
+    
+    println!("refs:{:?}",refs);
+
+    for _i in 0..60 {
+
+        for r in resl {
+            if r.name!="ORE" && refs.get(&r.name).unwrap_or(&0)==&1i64
+            {
+                let mut resln = resolve(&hash,r.name);
+                res2.append(&mut resln);    
+            }
+            else if r.name=="ORE"
+            {
+                res+=r.n;
+            }
+            else
+            {                
+                //spares
+                res2.append(&mut vec![r]);    
+            }
+
+            collapse(&mut res2);
+        }
+
+        println!("res2:{:?}",res2);        
+        resl = res2.clone();
+        res2 = vec![];
+
+    }
+
+
+
+    //println!("{:?}",hash);
+    res
+}
+
 fn main() {
+
+    test0();
+    return;
 
     let data = vec![
 "10 LSZLT, 29 XQJK => 4 BMRQJ",
@@ -95,10 +233,10 @@ fn main() {
     println!("Hello, world!");
 }
 
-#[test]
+//#[test]
 fn test0()
 {
-    let d = vec![
+let d = vec![
 "10 ORE => 10 A",
 "1 ORE => 1 B",
 "7 A, 1 B => 1 C",
@@ -107,4 +245,69 @@ fn test0()
 "7 A, 1 E => 1 FUEL"];
 
 assert_eq!(comp(d),31);
+}
+
+
+//#[test]
+fn test1()
+{
+let d = vec![
+"157 ORE => 5 NZVS",
+"165 ORE => 6 DCFZ",
+"44 XJWVT, 5 KHKGT, 1 QDVJ, 29 NZVS, 9 GPVTF, 48 HKGWZ => 1 FUEL",
+"12 HKGWZ, 1 GPVTF, 8 PSHF => 9 QDVJ",
+"179 ORE => 7 PSHF",
+"177 ORE => 5 HKGWZ",
+"7 DCFZ, 7 PSHF => 2 XJWVT",
+"165 ORE => 2 GPVTF",
+"3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT"];
+
+assert_eq!(comp(d),13312);
+}
+
+
+#[test]
+fn test2()
+{
+let d = vec![
+"2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG",
+"17 NVRVD, 3 JNWZP => 8 VPVL",
+"53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL",
+"22 VJHF, 37 MNCFX => 5 FWMGM",
+"139 ORE => 4 NVRVD",
+"144 ORE => 7 JNWZP",
+"5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC",
+"5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV",
+"145 ORE => 6 MNCFX",
+"1 NVRVD => 8 CXFTF",
+"1 VJHF, 6 MNCFX => 4 RFSQX",
+"176 ORE => 6 VJHF"];
+
+assert_eq!(comp(d),180697 );
+}
+
+
+#[test]
+fn test3()
+{
+let d = vec![
+"171 ORE => 8 CNZTR",
+"7 ZLQW, 3 BMBT, 9 XCVML, 26 XMNCP, 1 WPTQ, 2 MZWV, 1 RJRHP => 4 PLWSL",
+"114 ORE => 4 BHXH",
+"14 VRPVC => 6 BMBT",
+"6 BHXH, 18 KTJDG, 12 WPTQ, 7 PLWSL, 31 FHTLT, 37 ZDVW => 1 FUEL",
+"6 WPTQ, 2 BMBT, 8 ZLQW, 18 KTJDG, 1 XMNCP, 6 MZWV, 1 RJRHP => 6 FHTLT",
+"15 XDBXC, 2 LTCX, 1 VRPVC => 6 ZLQW",
+"13 WPTQ, 10 LTCX, 3 RJRHP, 14 XMNCP, 2 MZWV, 1 ZLQW => 1 ZDVW",
+"5 BMBT => 4 WPTQ",
+"189 ORE => 9 KTJDG",
+"1 MZWV, 17 XDBXC, 3 XCVML => 2 XMNCP",
+"12 VRPVC, 27 CNZTR => 2 XDBXC",
+"15 KTJDG, 12 BHXH => 5 XCVML",
+"3 BHXH, 2 VRPVC => 7 MZWV",
+"121 ORE => 7 VRPVC",
+"7 XCVML => 6 RJRHP",
+"5 BHXH, 4 VRPVC => 5 LTCX"];
+
+assert_eq!(comp(d),2210736  );
 }
