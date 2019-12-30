@@ -22,8 +22,7 @@ struct ElemBin {
 }
 
 impl ElemBin {
-    fn new(num:i64,s:String)->ElemBin{
-        let t:Vec<&str> = s.split(' ').collect();
+    fn new(num:i64,s:String)->ElemBin{        
         ElemBin {
             n    : num,
             name : s,
@@ -47,40 +46,18 @@ fn get_elems(s:String)->Vec<ElemBin>{
 
 fn resolve(hash : &HashMap<String,Elem>,savings:&mut HashMap<String,i64>,name:String,num:i64)->Vec<ElemBin>{
     let elem = hash.get(&name).unwrap();
-    let n = elem.from.n;
+    let n    = elem.from.n;
+    let cash = *savings.get(&name).unwrap_or(&0i64);
 
-    let cash = savings.get(&name).unwrap_or(&0i64);
-
-    if num<=*cash {
-        savings.insert(name, *cash-num);
+    if num<=cash {
+        savings.insert(name, cash-num);
         return vec![];
     }
 
-    let mut mult = 1;
+    let mult = (num-cash+n-1)/n;
+    savings.insert(name,mult*n+cash-num);
 
-    while mult*n+*cash-num<0 {
-        mult+=1;
-    }
-    savings.insert(name,mult*n+*cash-num);
-
-    let mut res : Vec<ElemBin> = vec![];
-    for e in &elem.tab {        
-        res.push(ElemBin::new(mult*e.n,e.name.clone()));
-    }
-    res
-}
-
-fn collapse(vector :&mut Vec<ElemBin>)
-{
-    let mut spares : HashMap<String,i64> = HashMap::new();  
-    (for e in vector.iter() {        
-        spares.insert(e.name.clone(),spares.get(&e.name).unwrap_or(&0) + e.n);
-    });
-
-    vector.clear();
-    for (key, value) in &spares {
-        vector.push(ElemBin::new(*value,key.clone()));
-    }
+    elem.tab.iter().map( |e| ElemBin::new(mult*e.n,e.name.clone()) ).collect()
 }
 
 fn compute_refs(refs:&mut HashMap<String,i64>,hash:&HashMap<String,Elem>,name:String){
@@ -116,47 +93,53 @@ fn comp(data:Vec<&str>) -> i64 {
 
     let mut savings : HashMap<String,i64> = HashMap::new();
 
-    println!("{:?}",hash["FUEL"]);
+    //println!("{:?}",hash["FUEL"]);
     let mut resl = resolve(&hash,&mut savings,"FUEL".to_string(),1);
-    println!("res2:{:?}",resl);
+    //println!("res2:{:?}",resl);
 
     let mut res2 = vec![];
     let mut res = 0;   
 
-    println!("refs:{:?}",refs);
+    //println!("refs:{:?}",refs);
     let mut level = 1i64;
 
     loop {
-        for _i in 0..100 {
+        let mut new_l = std::i64::MAX;
+          //  let mut min_level = i64::MAX;
+        //for _i in 0..1 {
             for r in resl {
-                if r.name!="ORE" && refs.get(&r.name).unwrap_or(&0)<=&level
-                {
-                    let mut resln = resolve(&hash,&mut savings,r.name,r.n);
-                    res2.append(&mut resln);    
+                let le = refs.get(&r.name).unwrap_or(&0);
+                if *le!=0 { new_l = std::cmp::min(new_l,*le); }
+
+                if r.name!="ORE" && le<=&level
+                {  
+                    res2.append(&mut resolve(&hash,&mut savings,r.name,r.n));
                 }
                 else if r.name=="ORE"
                 {
-                    println!("ORE:{} name:{}",r.n,r.name);
                     res+=r.n;
                 }
                 else
                 {                
-                    res2.append(&mut vec![r]);    
+                    res2.push(r);
                 }
             }
+            //337862
 
             //println!("res2:{:?}",res2);        
             //println!("savings:{:?}",savings);
             resl = res2.clone();
             res2 = vec![];
-        }
+       // }
 
         if resl.len()==0 { break; }
-        level+=1;
+        //level+=1;
+        //println!("{}", new_l);
+        level=new_l;
     }
 
-    println!("resl:{:?}",resl);
-    println!("savings:{:?}",savings);
+    //println!("resl:{:?}",resl);
+    //println!("savings:{:?}",savings);
 
     res
 }

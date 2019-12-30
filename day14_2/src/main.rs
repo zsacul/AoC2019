@@ -3,7 +3,7 @@ use std::collections::HashMap;
 #[derive(Debug,Clone,Hash)]
 struct Elem {
     from : ElemBin,
-    tab : Vec<ElemBin>,
+    tab  : Vec<ElemBin>,
 }
 
 impl Elem {
@@ -17,13 +17,12 @@ impl Elem {
 
 #[derive(Debug,Clone,Hash)]
 struct ElemBin {
-    n : i64,
+    n    : i64,
     name : String,
 }
 
 impl ElemBin {
     fn new(num:i64,s:String)->ElemBin{
-        let t:Vec<&str> = s.split(' ').collect();
         ElemBin {
             n    : num,
             name : s,
@@ -47,44 +46,18 @@ fn get_elems(s:String)->Vec<ElemBin>{
 
 fn resolve(hash : &HashMap<String,Elem>,savings:&mut HashMap<String,i64>,name:String,num:i64)->Vec<ElemBin>{
     let elem = hash.get(&name).unwrap();
-    let n = elem.from.n;
+    let n    = elem.from.n;
+    let cash = *savings.get(&name).unwrap_or(&0i64);
 
-    let cash = savings.get(&name).unwrap_or(&0i64);
-
-    if num<=*cash {
-        savings.insert(name, *cash-num);
+    if num<=cash {
+        savings.insert(name, cash-num);
         return vec![];
     }
 
-    let mut mult = 1i64;
+    let mult = (num-cash+n-1)/n;
+    savings.insert(name,mult*n+cash-num);
 
-    //mult = (num-*cash)/n;
-    //if mult<1 { mult=1; }
-
-    while mult*n<num-*cash {
-        mult+=1;
-    }
-
-    savings.insert(name,mult*n+*cash-num);
-
-    let mut res : Vec<ElemBin> = vec![];
-    for e in &elem.tab {        
-        res.push(ElemBin::new(mult*e.n,e.name.clone()));
-    }
-    res
-}
-
-fn collapse(vector :&mut Vec<ElemBin>)
-{
-    let mut spares : HashMap<String,i64> = HashMap::new();  
-    (for e in vector.iter() {        
-        spares.insert(e.name.clone(),spares.get(&e.name).unwrap_or(&0) + e.n);
-    });
-
-    vector.clear();
-    for (key, value) in &spares {
-        vector.push(ElemBin::new(*value,key.clone()));
-    }
+    elem.tab.iter().map( |e| ElemBin::new(mult*e.n,e.name.clone()) ).collect()
 }
 
 fn compute_refs(refs:&mut HashMap<String,i64>,hash:&HashMap<String,Elem>,name:String){
@@ -97,9 +70,6 @@ fn compute_refs(refs:&mut HashMap<String,i64>,hash:&HashMap<String,Elem>,name:St
         Some(ee) => ee,
         None => panic!("err"),
     };
-
-    //let e = hash.get(&name.clone()).unwrap();
-    //println!("e:{:?}",e);
 
     for el in &e.tab {        
         compute_refs(refs,hash,el.name.clone());
@@ -117,12 +87,13 @@ fn comp(data:Vec<&str>) -> i64 {
 
     let mut refs : HashMap<String,i64> = HashMap::new();
     compute_refs(&mut refs,&hash.clone(),"FUEL".to_string());
+
     let mut savings : HashMap<String,i64> = HashMap::new();
 
     println!("{:?}",hash["FUEL"]);
     let reslove = resolve(&hash,&mut savings,"FUEL".to_string(),1);
     
-    let mut left = 1000000000000i64;
+    let mut left = 1000_000_000_000i64;
     let mut fuel = 0i64;
 
     let mut res = 0;   
@@ -139,32 +110,33 @@ fn comp(data:Vec<&str>) -> i64 {
         let mut level = 1i64;     
 
         loop {
-            for _i in 0..10 {
-                for r in resl {
-                    if r.name!="ORE" && refs.get(&r.name).unwrap_or(&0)<=&level
-                    {
-                        let mut resln = resolve(&hash,&mut savings,r.name,r.n);
-                        res2.append(&mut resln);    
-                    }
-                    else if r.name=="ORE"
-                    {
-                        //println!("ORE:{} name:{}",r.n,r.name);
-                        res+=r.n;
-                    }
-                    else
-                    {                
-                        res2.append(&mut vec![r]);    
-                    }
-                }
+            let mut new_l = std::i64::MAX;
 
-                //println!("res2:{:?}",res2);        
-                //println!("savings:{:?}",savings);
-                resl = res2.clone();
-                res2 = vec![];
+            for r in resl {
+                let le = refs.get(&r.name).unwrap_or(&0);
+                if *le!=0 { new_l = std::cmp::min(new_l,*le); }
+
+                if r.name!="ORE" && le<=&level
+                {
+                    res2.append(&mut resolve(&hash,&mut savings,r.name,r.n));
+                }
+                else if r.name=="ORE"
+                {
+                    res+=r.n;
+                }
+                else
+                {                
+                    res2.push(r);    
+                }
             }
 
+            //println!("res2:{:?}",res2);        
+            //println!("savings:{:?}",savings);
+            resl = res2.clone();
+            res2 = vec![];
+
             if resl.len()==0 { break; }
-            level+=1;
+            level=new_l;
         }
 
         left-=res;
@@ -173,22 +145,12 @@ fn comp(data:Vec<&str>) -> i64 {
         if fuel%10240==0 { println!("fuel:{} left:{}",fuel,left); }
     }
 
-    println!("fuel:{} left:{} res:{}",fuel,left,res);
+    println!("fuel:{} left:{} res:{}",fuel-1,left,res);
 
-    //println!("resl:{:?}",resl);
-    //println!("savings:{:?}",savings);
-
-    //res
-    fuel
+    fuel-1
 }
 
 fn main() {
-    test3();
-    return;
-
-//    let f = 1000000000000i128/13312i128;
-//    println!("te:{}",f);
-//    return;
 
     let data = vec![
     "10 LSZLT, 29 XQJK => 4 BMRQJ",
@@ -254,7 +216,7 @@ fn main() {
     println!("result:{}",comp(data));
 }
 
-#[test]
+
 fn test0()
 {
     let d = vec![
@@ -269,7 +231,7 @@ fn test0()
 }
 
 
-//#[test]
+
 fn test1()
 {
     let d = vec![
@@ -286,7 +248,7 @@ fn test1()
     assert_eq!(comp(d),13312);
 }
 
-#[test]
+
 fn test21()
 {
     let d = vec![
@@ -301,7 +263,7 @@ fn test21()
     assert_eq!(comp(d),165);
 }
 
-#[test]
+
 fn test2()
 {
     let d = vec![
@@ -322,7 +284,7 @@ fn test2()
 }
 
 
-//#[test]
+
 fn test3()
 {
     let d = vec![
