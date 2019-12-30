@@ -56,11 +56,15 @@ fn resolve(hash : &HashMap<String,Elem>,savings:&mut HashMap<String,i64>,name:St
         return vec![];
     }
 
-    let mut mult = 1;
+    let mut mult = 1i64;
 
-    while mult*n+*cash-num<0 {
+    //mult = (num-*cash)/n;
+    //if mult<1 { mult=1; }
+
+    while mult*n<num-*cash {
         mult+=1;
     }
+
     savings.insert(name,mult*n+*cash-num);
 
     let mut res : Vec<ElemBin> = vec![];
@@ -113,56 +117,74 @@ fn comp(data:Vec<&str>) -> i64 {
 
     let mut refs : HashMap<String,i64> = HashMap::new();
     compute_refs(&mut refs,&hash.clone(),"FUEL".to_string());
-
     let mut savings : HashMap<String,i64> = HashMap::new();
 
     println!("{:?}",hash["FUEL"]);
-    let mut resl = resolve(&hash,&mut savings,"FUEL".to_string(),1);
-    println!("res2:{:?}",resl);
+    let reslove = resolve(&hash,&mut savings,"FUEL".to_string(),1);
+    
+    let mut left = 1000000000000i64;
+    let mut fuel = 0i64;
 
-    let mut res2 = vec![];
     let mut res = 0;   
 
-    println!("refs:{:?}",refs);
-    let mut level = 1i64;
+    while left>0 {
 
-    loop {
-        for _i in 0..100 {
-            for r in resl {
-                if r.name!="ORE" && refs.get(&r.name).unwrap_or(&0)<=&level
-                {
-                    let mut resln = resolve(&hash,&mut savings,r.name,r.n);
-                    res2.append(&mut resln);    
+        let mut resl = reslove.clone();
+       // println!("resl:{:?}",resl);
+
+        let mut res2 = vec![];
+        res = 0;
+
+        //println!("refs:{:?}",refs);
+        let mut level = 1i64;     
+
+        loop {
+            for _i in 0..10 {
+                for r in resl {
+                    if r.name!="ORE" && refs.get(&r.name).unwrap_or(&0)<=&level
+                    {
+                        let mut resln = resolve(&hash,&mut savings,r.name,r.n);
+                        res2.append(&mut resln);    
+                    }
+                    else if r.name=="ORE"
+                    {
+                        //println!("ORE:{} name:{}",r.n,r.name);
+                        res+=r.n;
+                    }
+                    else
+                    {                
+                        res2.append(&mut vec![r]);    
+                    }
                 }
-                else if r.name=="ORE"
-                {
-                    println!("ORE:{} name:{}",r.n,r.name);
-                    res+=r.n;
-                }
-                else
-                {                
-                    res2.append(&mut vec![r]);    
-                }
+
+                //println!("res2:{:?}",res2);        
+                //println!("savings:{:?}",savings);
+                resl = res2.clone();
+                res2 = vec![];
             }
 
-            //println!("res2:{:?}",res2);        
-            //println!("savings:{:?}",savings);
-            resl = res2.clone();
-            res2 = vec![];
+            if resl.len()==0 { break; }
+            level+=1;
         }
 
-        if resl.len()==0 { break; }
-        level+=1;
+        left-=res;
+        
+        fuel+=1;
+        if fuel%10240==0 { println!("fuel:{} left:{}",fuel,left); }
     }
 
-    println!("resl:{:?}",resl);
-    println!("savings:{:?}",savings);
+    println!("fuel:{} left:{} res:{}",fuel,left,res);
 
-    res
+    //println!("resl:{:?}",resl);
+    //println!("savings:{:?}",savings);
+
+    //res
+    fuel
 }
 
 fn main() {
-
+    test3();
+    return;
 
 //    let f = 1000000000000i128/13312i128;
 //    println!("te:{}",f);
@@ -247,7 +269,7 @@ fn test0()
 }
 
 
-#[test]
+//#[test]
 fn test1()
 {
     let d = vec![
@@ -300,7 +322,7 @@ fn test2()
 }
 
 
-#[test]
+//#[test]
 fn test3()
 {
     let d = vec![
